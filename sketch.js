@@ -1,17 +1,20 @@
 var agents = [];
 var objects_on_map = [];
 var effects = [];
-var CANVAS_WIDTH = 1200;
-var CANVAW_HEIGHT = 600;
-var timer = 3;
+var CANVAS_WIDTH = 1800;
+var CANVAW_HEIGHT = 900;
+var timer = 2;
 var hp_loss_tick = false;
 var food_count = 0;
 var poison_count = 0;
+var POPULATION_N = 35;
+var POISON_N = 300;
+var FOOD_N = 150;
 
 class MapObject {
     constructor(x, y) {
         this.position = createVector(x, y);
-        this.r = 6;
+        this.r = 5;
         this.color = 'gray';
     }
 
@@ -33,7 +36,7 @@ class Poison extends MapObject {
     constructor(x, y) {
         super(x, y);
         this.color = 'red';
-        this.health_change = 90;
+        this.health_change = 70;
     }
 }
 
@@ -58,10 +61,14 @@ function collision_checker() {
             
             if (dist_to_food < (agents[i].size * 0.2) + objects_on_map[j].r) {
                 if (agents[i].eat(objects_on_map[j])) {
-                    if (objects_on_map[j].constructor === Food)
+                    if (objects_on_map[j].constructor === Food) {
                         food_count--;
-                    else if (objects_on_map[j].constructor === Poison)
+                        agents[i].food_eaten++;
+                    }
+                    else if (objects_on_map[j].constructor === Poison)  {
                         poison_count--;
+                        agents[i].poison_eaten++;
+                    }
                     let temp = objects_on_map[j];
                     objects_on_map[j] = objects_on_map[objects_on_map.length - 1];
                     objects_on_map[objects_on_map.length - 1] = temp;
@@ -111,6 +118,12 @@ function spawn_agent() {
     agents.push(new Agent(random(0, CANVAS_WIDTH), random(0, CANVAW_HEIGHT)));
 }
 
+function gen_population() {
+    for (let i = 0; i < POPULATION_N; ++i) {
+        spawn_agent();
+    }
+}
+
 function setup() {
     createCanvas(CANVAS_WIDTH, CANVAW_HEIGHT);
     frameRate(60);
@@ -120,17 +133,20 @@ function setup() {
             spawn_poison()
     }
     
-    for(let i = 0; i < 50; i++)
-        spawn_agent();
+    gen_population();
 }
   
 function draw() {
+    console.log(agents.length);
+    if (agents.length > POPULATION_N) {
+        agents.splice(0, agents.length - POPULATION_N);
+    }
     background(51);
-    if (food_count < 120)
+    if (food_count < FOOD_N)
         for (let i = 0; i < 20; ++i)
             spawn_food();
 
-    if (poison_count < 120)
+    if (poison_count < POISON_N)
         for (let i = 0; i < 20; ++i)
             spawn_poison();
 
@@ -140,7 +156,7 @@ function draw() {
     }
     else {
         hp_loss_tick = true;
-        timer = 3;
+        timer = 2;
     }
     
     collision_checker();

@@ -1,3 +1,9 @@
+var MAX_SURVIVAL_TIME = 250000;
+var MAX_FOOD_POISON_POINTS = 50;
+var MAX_AGENTS_REPRODUCED = 12;
+var MUTATION_RATE = 0.1;
+var REPRODUCTION_RATE = 0.1;
+
 class Agent {
 
     constructor(x, y) {
@@ -7,34 +13,37 @@ class Agent {
         this.maxspeed = 2;
         this.maxforce = 0.5;
         this.size = 20;
-        this.health_points = 110;
-        this.max_HP = 125;
+        this.max_HP = 90;
+        this.health_points = this.max_HP;
         this.hp_loss = 1;
         this.color = 'green';
         this.targets = [this.position, this.position];
         this.DNA = [random(-5, 5), random(-5, 5), random(4, 250), random(4, 250)];
+        this.spawn_time = Date.now();
+        this.poison_eaten = 0;
+        this.food_eaten = 0;
     }
    
     update() {
         
         // dont let agent to go out of a canvas;
-        let check_vec = p5.Vector.add(this.position, this.velocity);
+        let check_vec = p5.Vector.add(this.position, 0);
         let force_vec = createVector(0, 0);
         if (check_vec.x + this.velocity.x > CANVAS_WIDTH) {
             force_vec = createVector(-1, 0);
-            force_vec.setMag(this.maxforce);
+            force_vec.setMag(this.maxforce * 1.5);
         }
         else if (check_vec.x + this.velocity.x < 0) {
             force_vec = createVector(1, 0);
-            force_vec.setMag(this.maxforce);
+            force_vec.setMag(this.maxforce * 1.5);
         }
         else if (check_vec.y + this.velocity.y > CANVAW_HEIGHT) {
             force_vec = createVector(0, -1);
-            force_vec.setMag(this.maxforce);
+            force_vec.setMag(this.maxforce * 1.5);
         }
         else if (check_vec.y + this.velocity.y < 0) {
             force_vec = createVector(0, 1);
-            force_vec.setMag(this.maxforce);
+            force_vec.setMag(this.maxforce * 1.5);
         }
         this.applyForce(force_vec);
         
@@ -56,18 +65,6 @@ class Agent {
 
             this.applyForce(steer);
         }
-    }
-
-    avoid() {
-        var desired = p5.Vector.sub(this.obstacle, this.position);
-
-        desired.setMag(this.maxspeed);
-
-        var steer = p5.Vector.sub(desired, this.velocity);
-        steer.mult(this.DNA[1]);
-        steer.limit(this.maxforce);
-
-        this.applyForce(steer);
     }
 
     applyForce(force) {
@@ -110,7 +107,54 @@ class Agent {
             this.health_points = this.max_HP;
     }
 
+    fitness_function() {
+        let time_points = (Date.now() - this.spawn_time);
+        if (time_points > MAX_SURVIVAL_TIME)
+            time_points = MAX_SURVIVAL_TIME;
+        time_points = map(time_points, 0, MAX_SURVIVAL_TIME, 0, 1);
+        
+        let gather_points = 0;
+        if (this.poison_eaten == 0)
+            gather_points = this.food_eaten;
+        else
+            gather_points = this.food_eaten / this.poison_eaten;
+
+        gather_points = map(gather_points, 0, MAX_FOOD_POISON_POINTS, 0, 1);
+        return parseInt(round(map(gather_points+time_points, 0, 2, 0, MAX_AGENTS_REPRODUCED)));
+    }
+    
+    reproduce() {
+        var child_to_spawn = this.fitness_function();
+        for (let i = 0; i < child_to_spawn; ++i) {
+            var child = new Agent(random(this.size, CANVAS_WIDTH - this.size), random(this.size, CANVAW_HEIGHT - this.size));
+            for (let j = 0; j < this.DNA.length; ++j)
+                child.DNA[j] = this.DNA[j];
+            child.mutate();
+            agents.push(child);
+        }
+    }
+
+    mutate() {
+        if (random(1) < MUTATION_RATE)
+            this.DNA[0] += random(-1, 1);
+        if (random(1) < MUTATION_RATE)
+            this.DNA[1] += random(-1, 1);
+
+        if (random(1) < MUTATION_RATE) {
+            this.DNA[2] += random(-50, 50);
+            if (this.DNA[2] < 0)
+            this.DNA[2] = 0;
+        }
+        
+        if (random(1) < MUTATION_RATE) {
+            this.DNA[3] += random(-50, 50);
+            if (this.DNA[3] < 0)
+            this.DNA[3] = 0;
+        }
+    }
+
     die_animation(effects) {
+        this.reproduce();
         effects.push(new Explosion(this.position, this.size));
     }
 
